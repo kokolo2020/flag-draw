@@ -257,7 +257,19 @@ document.addEventListener('DOMContentLoaded', async function() {
 `    window.addEventListener("keydown", this.onKey);
     window.addEventListener("pointermove", this.onPieceMove);
     window.addEventListener("pointerup", this.onPieceUp);
+    window.addEventListener("contextmenu", this.blockPuzzleContextMenu, { capture: true });
+    window.addEventListener("dragstart", this.blockPuzzleContextMenu, { capture: true });
+    window.addEventListener("selectstart", this.blockPuzzleContextMenu, { capture: true });
     this.timer = setInterval(this.tick, 100);`
+        ],
+        [
+`    window.removeEventListener("pointermove", this.onPieceMove);
+    window.removeEventListener("pointerup", this.onPieceUp);`,
+`    window.removeEventListener("pointermove", this.onPieceMove);
+    window.removeEventListener("pointerup", this.onPieceUp);
+    window.removeEventListener("contextmenu", this.blockPuzzleContextMenu, { capture: true });
+    window.removeEventListener("dragstart", this.blockPuzzleContextMenu, { capture: true });
+    window.removeEventListener("selectstart", this.blockPuzzleContextMenu, { capture: true });`
         ],
         [
 `  setGuideMode = (m) => this.setState({ guideMode: m });
@@ -281,6 +293,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (e && e.preventDefault) e.preventDefault();
     if (e && e.stopPropagation) e.stopPropagation();
     if (this.state.guideMode !== "assemble" || this.flag.cc !== "ca") return;
+    if (e && e.currentTarget && e.pointerId != null && e.currentTarget.setPointerCapture) {
+      try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
+    }
     this.setState({
       draggingPiece: piece,
       dragX: e && typeof e.clientX === "number" ? e.clientX : 0,
@@ -307,11 +322,13 @@ document.addEventListener('DOMContentLoaded', async function() {
   }
   onPieceMove = (e) => {
     if (!this.state.draggingPiece) return;
+    if (e && e.cancelable && e.preventDefault) e.preventDefault();
     this.setState({ dragX: e.clientX, dragY: e.clientY });
   };
   onPieceUp = (e) => {
     const piece = this.state.draggingPiece;
     if (!piece) return;
+    if (e && e.cancelable && e.preventDefault) e.preventDefault();
     const target = this.puzzleDropTarget(piece, e.clientX, e.clientY);
     this.setState((s) => ({
       draggingPiece: null,
@@ -320,7 +337,52 @@ document.addEventListener('DOMContentLoaded', async function() {
       puzzlePlaced: target ? { ...s.puzzlePlaced, [target]: true } : s.puzzlePlaced,
     }));
   };
+  blockPuzzleContextMenu = (e) => {
+    if (this.state.guideMode !== "assemble") return;
+    const node = e.target && e.target.nodeType === 1 ? e.target : (e.target && e.target.parentElement);
+    const target = node && node.closest && node.closest("[data-puzzle-piece],[data-puzzle-tray],[data-zone]");
+    if (!target) return;
+    if (e.preventDefault) e.preventDefault();
+    if (e.stopPropagation) e.stopPropagation();
+    return false;
+  };
   resetPuzzle = () => this.setState({ puzzlePlaced: { left: false, center: false, right: false, leaf: false }, draggingPiece: null });`
+        ],
+        [
+          '<div style="{{ puzzleTrayStyle }}">',
+          '<div data-puzzle-tray="true" style="{{ puzzleTrayStyle }}">'
+        ],
+        [
+          '<div sc-camel-on-pointer-down="{{ downLeft }}" style="{{ pieceLeftStyle }}" title="Drag to place"></div>',
+          '<div data-puzzle-piece="left" draggable="false" sc-camel-on-pointer-down="{{ downLeft }}" style="{{ pieceLeftStyle }}" title="Drag to place"></div>'
+        ],
+        [
+          '<div sc-camel-on-pointer-down="{{ downCenter }}" style="{{ pieceCenterStyle }}" title="Drag to place"></div>',
+          '<div data-puzzle-piece="center" draggable="false" sc-camel-on-pointer-down="{{ downCenter }}" style="{{ pieceCenterStyle }}" title="Drag to place"></div>'
+        ],
+        [
+          '<div sc-camel-on-pointer-down="{{ downRight }}" style="{{ pieceRightStyle }}" title="Drag to place"></div>',
+          '<div data-puzzle-piece="right" draggable="false" sc-camel-on-pointer-down="{{ downRight }}" style="{{ pieceRightStyle }}" title="Drag to place"></div>'
+        ],
+        [
+          '<div sc-camel-on-pointer-down="{{ downLeaf }}" style="{{ pieceLeafStyle }}" title="Drag to place">🍁</div>',
+          '<div data-puzzle-piece="leaf" draggable="false" sc-camel-on-pointer-down="{{ downLeaf }}" style="{{ pieceLeafStyle }}" title="Drag to place">🍁</div>'
+        ],
+        [
+          'border: "2px solid #f4f1e8", overflow: "hidden",',
+          'border: "2px solid #f4f1e8", overflow: "hidden", touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none",'
+        ],
+        [
+          'gap: 16, padding: 16, background: "rgba(20,45,37,0.7)", border: "2px solid #f4f1e8",',
+          'gap: 16, padding: 16, background: "rgba(20,45,37,0.7)", border: "2px solid #f4f1e8", touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none",'
+        ],
+        [
+          'touchAction: "none" }',
+          'touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none", WebkitUserDrag: "none" }'
+        ],
+        [
+          'border: "2px solid #f4f1e8", boxShadow: "0 8px 20px rgba(0,0,0,0.4)",',
+          'border: "2px solid #f4f1e8", boxShadow: "0 8px 20px rgba(0,0,0,0.4)", touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none", WebkitUserDrag: "none",'
         ],
         [
 `      modeButtons: [
