@@ -53,17 +53,24 @@
       btn.type = 'button';
       btn.textContent = 'Install App';
       btn.setAttribute('aria-label', 'Install Flag Draw app');
-      btn.style.cssText = 'position:fixed;top:16px;right:16px;z-index:999999;padding:10px 14px;border:2px solid #201e1d;background:#ec3013;color:#fff;font:700 13px/1.2 -apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;box-shadow:3px 3px 0 #201e1d;display:none';
+      btn.style.cssText = 'position:fixed;top:16px;right:16px;z-index:2147483647;padding:11px 15px;border:2px solid #201e1d;background:#ec3013;color:#fff;font:700 13px/1.2 -apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;box-shadow:3px 3px 0 #201e1d;display:block';
       btn.addEventListener('click', async function () {
         var promptEvent = window.__pwaInstallPrompt;
-        if (!promptEvent) return;
+        if (!promptEvent) {
+          var isiOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+          var msg = isiOS
+            ? 'To install Flag Draw: tap the Share button in Safari, then choose Add to Home Screen.'
+            : 'Install is not available from this browser yet. Open this page in Chrome or Edge, then use the browser menu and choose Install app / Add to Home screen.';
+          alert(msg);
+          return;
+        }
         promptEvent.prompt();
         try { await promptEvent.userChoice; } catch (e) {}
         window.__pwaInstallPrompt = null;
         btn.style.display = 'none';
       });
       document.body.appendChild(btn);
-      function sync() { btn.style.display = window.__pwaInstallPrompt ? 'block' : 'none'; }
+      function sync() { btn.style.display = 'block'; }
       window.addEventListener('pwa-install-available', sync);
       sync();
     }
@@ -368,6 +375,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     // preserve ordering (React before ReactDOM before Babel before text/babel).
     const doc = new DOMParser().parseFromString(template, 'text/html');
     document.documentElement.replaceWith(doc.documentElement);
+    // Re-mount the persistent install control after the bundled app replaces the document.
+    if (typeof mountInstallButton === 'function') mountInstallButton();
 
     // Resolve page-frame markers: mint this document's own blob for each
     // framed page — from local text when this is the root, otherwise by
