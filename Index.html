@@ -30,6 +30,44 @@
         navigator.serviceWorker.register('sw.js').catch(function () {});
       });
     }
+
+    // In-app PWA install option. The button appears only when the browser
+    // exposes an install prompt and disappears after installation.
+    window.__pwaInstallPrompt = null;
+    window.addEventListener('beforeinstallprompt', function (event) {
+      event.preventDefault();
+      window.__pwaInstallPrompt = event;
+      window.dispatchEvent(new CustomEvent('pwa-install-available'));
+    });
+    window.addEventListener('appinstalled', function () {
+      window.__pwaInstallPrompt = null;
+      var btn = document.getElementById('__pwa_install_btn');
+      if (btn) btn.remove();
+    });
+
+    function mountInstallButton() {
+      if (document.getElementById('__pwa_install_btn')) return;
+      if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return;
+      var btn = document.createElement('button');
+      btn.id = '__pwa_install_btn';
+      btn.type = 'button';
+      btn.textContent = 'Install App';
+      btn.setAttribute('aria-label', 'Install Flag Draw app');
+      btn.style.cssText = 'position:fixed;top:16px;right:16px;z-index:999999;padding:10px 14px;border:2px solid #201e1d;background:#ec3013;color:#fff;font:700 13px/1.2 -apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;box-shadow:3px 3px 0 #201e1d;display:none';
+      btn.addEventListener('click', async function () {
+        var promptEvent = window.__pwaInstallPrompt;
+        if (!promptEvent) return;
+        promptEvent.prompt();
+        try { await promptEvent.userChoice; } catch (e) {}
+        window.__pwaInstallPrompt = null;
+        btn.style.display = 'none';
+      });
+      document.body.appendChild(btn);
+      function sync() { btn.style.display = window.__pwaInstallPrompt ? 'block' : 'none'; }
+      window.addEventListener('pwa-install-available', sync);
+      sync();
+    }
+    window.addEventListener('DOMContentLoaded', mountInstallButton);
   </script>
 </head>
 <body>
