@@ -53,7 +53,7 @@
       btn.type = 'button';
       btn.textContent = 'Install App';
       btn.setAttribute('aria-label', 'Install Flag Draw app');
-      btn.style.cssText = 'position:fixed;top:16px;right:16px;z-index:2147483647;padding:11px 15px;border:2px solid #201e1d;background:#ec3013;color:#fff;font:700 13px/1.2 -apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;box-shadow:3px 3px 0 #201e1d;display:block';
+      btn.style.cssText = 'position:fixed;right:18px;bottom:18px;z-index:2147483647;padding:14px 18px;border:2px solid #201e1d;background:#ec3013;color:#fff;font:800 15px/1.2 -apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;box-shadow:3px 3px 0 #201e1d;display:block';
       btn.addEventListener('click', async function () {
         var promptEvent = window.__pwaInstallPrompt;
         if (!promptEvent) {
@@ -425,6 +425,21 @@ document.addEventListener('DOMContentLoaded', async function() {
     // which fired before we swapped the document. Trigger manually if present.
     if (window.Babel && typeof window.Babel.transformScriptTags === 'function') {
       window.Babel.transformScriptTags();
+    }
+
+    // Mount the install control only after the app's own scripts/React render have run.
+    // Keep it alive because this bundled app may redraw portions of the document.
+    function ensureInstallControl() {
+      try {
+        if (typeof mountInstallButton === 'function') mountInstallButton();
+      } catch (e) {}
+    }
+    ensureInstallControl();
+    setTimeout(ensureInstallControl, 250);
+    setTimeout(ensureInstallControl, 1000);
+    setTimeout(ensureInstallControl, 2500);
+    if (!window.__pwaInstallKeepAlive) {
+      window.__pwaInstallKeepAlive = setInterval(ensureInstallControl, 2000);
     }
   } catch (err) {
     setStatus('Error unpacking: ' + err.message);
