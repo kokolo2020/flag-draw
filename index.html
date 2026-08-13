@@ -237,6 +237,113 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     const manifest = JSON.parse(manifestEl.textContent);
     let template = JSON.parse(templateEl.textContent);
+    function patchAssembleMode(source) {
+      const patches = [
+        [
+          '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:#9b9797;margin-bottom:8px">Mode</div>\n            <div style="display:flex">',
+          '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:#9b9797;margin-bottom:8px">Mode</div>\n            <div style="display:flex;flex-wrap:wrap;gap:0">'
+        ],
+        [
+          '<sc-for list="{{ modeButtons }}" as="m" hint-placeholder-count="2">',
+          '<sc-for list="{{ modeButtons }}" as="m" hint-placeholder-count="4">'
+        ],
+        [
+          'title="Tap to place"',
+          'title="Drag to place"'
+        ],
+        [
+`    window.addEventListener("keydown", this.onKey);
+    this.timer = setInterval(this.tick, 100);`,
+`    window.addEventListener("keydown", this.onKey);
+    window.addEventListener("pointermove", this.onPieceMove);
+    window.addEventListener("pointerup", this.onPieceUp);
+    this.timer = setInterval(this.tick, 100);`
+        ],
+        [
+`  setGuideMode = (m) => this.setState({ guideMode: m });
+  placePiece = (piece) => (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (piece === "left" || piece === "right") {
+      this.setState((s) => ({ puzzlePlaced: { ...s.puzzlePlaced, left: true, right: true } }));
+    } else {
+      this.setState((s) => ({ puzzlePlaced: { ...s.puzzlePlaced, [piece]: true } }));
+    }
+  };
+  resetPuzzle = () => this.setState({ puzzlePlaced: { left: false, center: false, right: false, leaf: false } });`,
+`  setGuideMode = (m) => this.setState((s) => ({
+    guideMode: m,
+    draggingPiece: null,
+    puzzlePlaced: m === "assemble"
+      ? { left: false, center: false, right: false, leaf: false }
+      : s.puzzlePlaced,
+  }));
+  placePiece = (piece) => (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (e && e.stopPropagation) e.stopPropagation();
+    if (this.state.guideMode !== "assemble" || this.flag.cc !== "ca") return;
+    this.setState({
+      draggingPiece: piece,
+      dragX: e && typeof e.clientX === "number" ? e.clientX : 0,
+      dragY: e && typeof e.clientY === "number" ? e.clientY : 0,
+    });
+  };
+  puzzleZoneAt(piece, x, y) {
+    const zones = piece === "leaf"
+      ? [["leaf", this.leafZoneRef.current]]
+      : [["left", this.leftZoneRef.current], ["center", this.centerZoneRef.current], ["right", this.rightZoneRef.current]];
+    for (const [name, el] of zones) {
+      if (!el) continue;
+      const r = el.getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return name;
+    }
+    return null;
+  }
+  puzzleDropTarget(piece, x, y) {
+    const zone = this.puzzleZoneAt(piece, x, y);
+    if (piece === "leaf" && zone === "leaf") return "leaf";
+    if (piece === "center" && zone === "center") return "center";
+    if ((piece === "left" || piece === "right") && zone === piece) return piece;
+    return null;
+  }
+  onPieceMove = (e) => {
+    if (!this.state.draggingPiece) return;
+    this.setState({ dragX: e.clientX, dragY: e.clientY });
+  };
+  onPieceUp = (e) => {
+    const piece = this.state.draggingPiece;
+    if (!piece) return;
+    const target = this.puzzleDropTarget(piece, e.clientX, e.clientY);
+    this.setState((s) => ({
+      draggingPiece: null,
+      dragX: 0,
+      dragY: 0,
+      puzzlePlaced: target ? { ...s.puzzlePlaced, [target]: true } : s.puzzlePlaced,
+    }));
+  };
+  resetPuzzle = () => this.setState({ puzzlePlaced: { left: false, center: false, right: false, leaf: false }, draggingPiece: null });`
+        ],
+        [
+`      modeButtons: [
+        { label: "Draw", pick: () => this.setGuideMode("draw"), active: s.guideMode === "draw" },
+        { label: "Trace", pick: () => this.setGuideMode("trace"), active: s.guideMode === "trace" },
+        { label: "AI Draw", pick: () => this.setGuideMode("ai"), active: s.guideMode === "ai" },
+      ].map((m) => ({`,
+`      modeButtons: [
+        { label: "Draw", pick: () => this.setGuideMode("draw"), active: s.guideMode === "draw" },
+        { label: "Trace", pick: () => this.setGuideMode("trace"), active: s.guideMode === "trace" },
+        { label: "AI Draw", pick: () => this.setGuideMode("ai"), active: s.guideMode === "ai" },
+        { label: "Assemble", pick: () => this.setGuideMode("assemble"), active: s.guideMode === "assemble" },
+      ].map((m) => ({`
+        ]
+      ];
+
+      for (const patch of patches) {
+        if (!source.includes(patch[0])) console.warn('[bundle] assemble mode patch target missing');
+        source = source.replaceAll(patch[0], patch[1]);
+      }
+      return source;
+    }
+    template = patchAssembleMode(template);
 
     // Nested page bundles (iframe targets). Each ships ONCE, in the ROOT
     // document's manifest; frame srcs carry an about:blank#<uuid> marker
