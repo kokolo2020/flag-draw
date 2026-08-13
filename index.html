@@ -17,64 +17,168 @@
       This page requires JavaScript to display.
     </div>
   </noscript>
-  <link rel="manifest" href="manifest.json">
+  <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#ec3013">
+  <meta name="application-name" content="Flag Draw">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Flag Draw">
-  <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <link rel="icon" href="/icon-192.png">
   <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function () {
-        navigator.serviceWorker.register('sw.js').catch(function () {});
-      });
-    }
+    (function () {
+      var installPromptEvent = null;
+      var isInstalled = false;
 
-    // In-app PWA install option. The button appears only when the browser
-    // exposes an install prompt and disappears after installation.
-    window.__pwaInstallPrompt = null;
-    window.addEventListener('beforeinstallprompt', function (event) {
-      event.preventDefault();
-      window.__pwaInstallPrompt = event;
-      window.dispatchEvent(new CustomEvent('pwa-install-available'));
-    });
-    window.addEventListener('appinstalled', function () {
-      window.__pwaInstallPrompt = null;
-      var btn = document.getElementById('__pwa_install_btn');
-      if (btn) btn.remove();
-    });
+      function inStandaloneMode() {
+        return !!(
+          (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+          window.navigator.standalone
+        );
+      }
 
-    function mountInstallButton() {
-      if (document.getElementById('__pwa_install_btn')) return;
-      if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return;
-      var btn = document.createElement('button');
-      btn.id = '__pwa_install_btn';
-      btn.type = 'button';
-      btn.textContent = 'Install App';
-      btn.setAttribute('aria-label', 'Install Flag Draw app');
-      btn.style.cssText = 'position:fixed;right:18px;bottom:18px;z-index:2147483647;padding:14px 18px;border:2px solid #201e1d;background:#ec3013;color:#fff;font:800 15px/1.2 -apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;box-shadow:3px 3px 0 #201e1d;display:block';
-      btn.addEventListener('click', async function () {
-        var promptEvent = window.__pwaInstallPrompt;
-        if (!promptEvent) {
-          var isiOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-          var msg = isiOS
-            ? 'To install Flag Draw: tap the Share button in Safari, then choose Add to Home Screen.'
-            : 'Install is not available from this browser yet. Open this page in Chrome or Edge, then use the browser menu and choose Install app / Add to Home screen.';
-          alert(msg);
+      function ensureHeadTag(selector, createTag) {
+        if (!document.head || document.head.querySelector(selector)) return;
+        document.head.appendChild(createTag());
+      }
+
+      function ensurePwaHead() {
+        ensureHeadTag('link[rel="manifest"]', function () {
+          var link = document.createElement('link');
+          link.rel = 'manifest';
+          link.href = '/manifest.json';
+          return link;
+        });
+        ensureHeadTag('meta[name="theme-color"]', function () {
+          var meta = document.createElement('meta');
+          meta.name = 'theme-color';
+          meta.content = '#ec3013';
+          return meta;
+        });
+        ensureHeadTag('link[rel="apple-touch-icon"]', function () {
+          var link = document.createElement('link');
+          link.rel = 'apple-touch-icon';
+          link.href = '/icon-192.png';
+          return link;
+        });
+        ensureHeadTag('link[rel="icon"]', function () {
+          var link = document.createElement('link');
+          link.rel = 'icon';
+          link.href = '/icon-192.png';
+          return link;
+        });
+      }
+
+      function registerServiceWorker() {
+        if (!('serviceWorker' in navigator) || window.__flagDrawSwRegistered) return;
+        window.__flagDrawSwRegistered = true;
+        navigator.serviceWorker.register('/sw.js').catch(function (error) {
+          console.warn('[pwa] service worker registration failed', error);
+        });
+      }
+
+      function hideInstallButton() {
+        var btn = document.getElementById('__pwa_install_btn');
+        if (btn) btn.remove();
+      }
+
+      function updateInstallButton() {
+        var btn = document.getElementById('__pwa_install_btn');
+        if (!btn) return;
+        if (isInstalled || inStandaloneMode()) {
+          hideInstallButton();
           return;
         }
-        promptEvent.prompt();
-        try { await promptEvent.userChoice; } catch (e) {}
-        window.__pwaInstallPrompt = null;
-        btn.style.display = 'none';
+        btn.style.display = 'block';
+        btn.setAttribute('aria-disabled', installPromptEvent ? 'false' : 'true');
+        btn.title = installPromptEvent
+          ? 'Install Flag Draw'
+          : 'Install will be available when Chrome is ready';
+      }
+
+      window.__flagDrawMountInstallButton = function () {
+        ensurePwaHead();
+        registerServiceWorker();
+        if (!document.body || isInstalled || inStandaloneMode()) {
+          hideInstallButton();
+          return;
+        }
+        if (!document.getElementById('__pwa_install_btn')) {
+          var btn = document.createElement('button');
+          btn.id = '__pwa_install_btn';
+          btn.type = 'button';
+          btn.textContent = 'INSTALL APP';
+          btn.setAttribute('aria-label', 'Install Flag Draw app');
+          btn.style.cssText = 'position:fixed;right:18px;bottom:18px;z-index:2147483647;min-width:132px;padding:14px 18px;border:2px solid #201e1d;border-radius:0;background:#ec3013;color:#fff;font:800 15px/1.2 -apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;box-shadow:3px 3px 0 #201e1d;display:block';
+          btn.addEventListener('click', function () {
+            var promptEvent = installPromptEvent;
+            if (!promptEvent) return;
+            installPromptEvent = null;
+            window.__pwaInstallPrompt = null;
+            promptEvent.prompt();
+            Promise.resolve(promptEvent.userChoice)
+              .then(function (choice) {
+                if (choice && choice.outcome === 'accepted') {
+                  isInstalled = true;
+                  hideInstallButton();
+                } else {
+                  updateInstallButton();
+                }
+              })
+              .catch(updateInstallButton);
+          });
+          document.body.appendChild(btn);
+        }
+        updateInstallButton();
+      };
+
+      window.__flagDrawScheduleInstallButton = function () {
+        function mount() {
+          try {
+            window.__flagDrawMountInstallButton();
+          } catch (error) {
+            console.warn('[pwa] install button mount failed', error);
+          }
+        }
+
+        var raf = window.requestAnimationFrame || function (cb) { return setTimeout(cb, 16); };
+        raf(function () { raf(mount); });
+        setTimeout(mount, 250);
+        setTimeout(mount, 1000);
+        setTimeout(mount, 2500);
+
+        if (!window.__flagDrawInstallKeepAlive) {
+          window.__flagDrawInstallKeepAlive = setInterval(mount, 2000);
+        }
+        if (!window.__flagDrawInstallObserver && window.MutationObserver) {
+          window.__flagDrawInstallObserver = new MutationObserver(function () {
+            if (!document.getElementById('__pwa_install_btn')) mount();
+          });
+          window.__flagDrawInstallObserver.observe(document.documentElement, {
+            childList: true,
+            subtree: true
+          });
+        }
+      };
+
+      window.addEventListener('beforeinstallprompt', function (event) {
+        event.preventDefault();
+        installPromptEvent = event;
+        window.__pwaInstallPrompt = event;
+        window.dispatchEvent(new CustomEvent('pwa-install-available'));
+        updateInstallButton();
       });
-      document.body.appendChild(btn);
-      function sync() { btn.style.display = 'block'; }
-      window.addEventListener('pwa-install-available', sync);
-      sync();
-    }
-    window.addEventListener('DOMContentLoaded', mountInstallButton);
+
+      window.addEventListener('appinstalled', function () {
+        installPromptEvent = null;
+        window.__pwaInstallPrompt = null;
+        isInstalled = true;
+        hideInstallButton();
+      });
+
+      window.addEventListener('load', registerServiceWorker, { once: true });
+      window.addEventListener('pwa-install-available', updateInstallButton);
+    })();
   </script>
 </head>
 <body>
@@ -375,8 +479,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     // preserve ordering (React before ReactDOM before Babel before text/babel).
     const doc = new DOMParser().parseFromString(template, 'text/html');
     document.documentElement.replaceWith(doc.documentElement);
-    // Re-mount the persistent install control after the bundled app replaces the document.
-    if (typeof mountInstallButton === 'function') mountInstallButton();
 
     // Resolve page-frame markers: mint this document's own blob for each
     // framed page — from local text when this is the root, otherwise by
@@ -427,19 +529,9 @@ document.addEventListener('DOMContentLoaded', async function() {
       window.Babel.transformScriptTags();
     }
 
-    // Mount the install control only after the app's own scripts/React render have run.
-    // Keep it alive because this bundled app may redraw portions of the document.
-    function ensureInstallControl() {
-      try {
-        if (typeof mountInstallButton === 'function') mountInstallButton();
-      } catch (e) {}
-    }
-    ensureInstallControl();
-    setTimeout(ensureInstallControl, 250);
-    setTimeout(ensureInstallControl, 1000);
-    setTimeout(ensureInstallControl, 2500);
-    if (!window.__pwaInstallKeepAlive) {
-      window.__pwaInstallKeepAlive = setInterval(ensureInstallControl, 2000);
+    // Mount the persistent install control after the bundled React/Babel render.
+    if (typeof window.__flagDrawScheduleInstallButton === 'function') {
+      window.__flagDrawScheduleInstallButton();
     }
   } catch (err) {
     setStatus('Error unpacking: ' + err.message);
