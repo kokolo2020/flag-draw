@@ -16,15 +16,6 @@ self.addEventListener("activate", (event) => {
     }
 
     await self.clients.claim();
-    const clients = await self.clients.matchAll({ type: "window" });
-    await Promise.all(
-      clients.map((client) => {
-        if ("navigate" in client && client.url) {
-          return client.navigate(client.url).catch(() => {});
-        }
-        return Promise.resolve();
-      })
-    );
   })());
 });
 
