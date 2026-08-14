@@ -1,5 +1,5 @@
-const CACHE = "flag-draw-v8";
-const APP_SHELL = "/index.html?app-shell=v8";
+const CACHE = "flag-draw-v9";
+const APP_SHELL = "/index.html?app-shell=v9";
 const CORE_ASSETS = [APP_SHELL, "/manifest.json", "/icon-192.png", "/icon-512.png", "/icon-maskable-512.png"];
 
 function freshRequest(request) {

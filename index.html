@@ -27,8 +27,8 @@
   <link rel="icon" href="/icon-192.png">
   <script>
     (function () {
-      var appVersion = 'v8';
-      var installPromptEvent = null;
+      var appVersion = 'v9';
+      var installPromptAvailable = false;
       var isInstalled = false;
       window.__FLAG_DRAW_VERSION = appVersion;
 
@@ -192,7 +192,7 @@
         }
         help.textContent = message;
         if (window.__flagDrawInstallHelpTimer) clearTimeout(window.__flagDrawInstallHelpTimer);
-        window.__flagDrawInstallHelpTimer = setTimeout(hideInstallHelp, 9000);
+        window.__flagDrawInstallHelpTimer = setTimeout(hideInstallHelp, 16000);
       }
 
       function mountVersionLabel() {
@@ -216,9 +216,9 @@
           return;
         }
         btn.style.display = 'block';
-        btn.setAttribute('aria-disabled', installPromptEvent ? 'false' : 'true');
-        btn.title = installPromptEvent
-          ? 'Install Flag Draw'
+        btn.setAttribute('aria-disabled', 'false');
+        btn.title = installPromptAvailable
+          ? 'Chrome install is available from the browser menu'
           : 'Tap for Chrome install instructions';
       }
 
@@ -238,48 +238,11 @@
           btn.setAttribute('aria-label', 'Install Flag Draw app');
           btn.style.cssText = 'position:fixed;right:18px;bottom:18px;z-index:2147483647;min-width:132px;padding:14px 18px;border:2px solid #201e1d;border-radius:0;background:#ec3013;color:#fff;font:800 15px/1.2 -apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;box-shadow:3px 3px 0 #201e1d;display:block;touch-action:manipulation';
           btn.addEventListener('click', function () {
-            var promptEvent = installPromptEvent;
-            if (!promptEvent) {
-              registerServiceWorker();
-              if (navigator.serviceWorker && navigator.serviceWorker.ready) {
-                navigator.serviceWorker.ready.then(updateInstallButton).catch(function () {});
-              }
-              showInstallHelp('Chrome has not opened the native prompt yet. Tap the Chrome menu (three dots), then Install app or Add to Home screen.');
-              return;
+            registerServiceWorker();
+            if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+              navigator.serviceWorker.ready.then(updateInstallButton).catch(function () {});
             }
-            hideInstallHelp();
-            installPromptEvent = null;
-            window.__pwaInstallPrompt = null;
-            var promptTimeout = setTimeout(function () {
-              if (isInstalled) return;
-              showInstallHelp('If Chrome does not show the install prompt, use the Chrome menu (three dots), then Install app or Add to Home screen.');
-              updateInstallButton();
-            }, 8000);
-            try {
-              Promise.resolve(promptEvent.prompt()).catch(function (error) {
-                console.warn('[pwa] install prompt failed', error);
-              });
-            } catch (error) {
-              clearTimeout(promptTimeout);
-              installPromptEvent = promptEvent;
-              window.__pwaInstallPrompt = promptEvent;
-              console.warn('[pwa] install prompt failed', error);
-              updateInstallButton();
-              return;
-            }
-            Promise.resolve(promptEvent.userChoice)
-              .then(function (choice) {
-                if (choice && choice.outcome === 'accepted') {
-                  isInstalled = true;
-                  hideInstallButton();
-                } else {
-                  updateInstallButton();
-                }
-              })
-              .catch(updateInstallButton)
-              .then(function () {
-                clearTimeout(promptTimeout);
-              });
+            showInstallHelp('To install without freezing, tap the Chrome menu (three dots), then Install app or Add to Home screen. If an old Flag Draw app is installed, remove it first and install again from this page.');
           });
           document.body.appendChild(btn);
         }
@@ -316,16 +279,15 @@
       };
 
       window.addEventListener('beforeinstallprompt', function (event) {
-        event.preventDefault();
-        installPromptEvent = event;
-        window.__pwaInstallPrompt = event;
+        installPromptAvailable = true;
+        window.__pwaInstallPrompt = null;
         hideInstallHelp();
         window.dispatchEvent(new CustomEvent('pwa-install-available'));
         updateInstallButton();
       });
 
       window.addEventListener('appinstalled', function () {
-        installPromptEvent = null;
+        installPromptAvailable = false;
         window.__pwaInstallPrompt = null;
         isInstalled = true;
         hideInstallButton();
