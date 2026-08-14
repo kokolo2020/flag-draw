@@ -27,7 +27,7 @@
   <link rel="icon" href="/icon-192.png">
   <script>
     (function () {
-      var appVersion = 'v11';
+      var appVersion = 'v12';
       var installPromptAvailable = false;
       var isInstalled = false;
       window.__FLAG_DRAW_VERSION = appVersion;
@@ -322,6 +322,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const manifest = JSON.parse(manifestEl.textContent);
     let template = JSON.parse(templateEl.textContent);
     function patchAiNameReveal(source) {
+      return source;
       const patches = [
         [
           'showPrompt: false, guideMode: "draw", hintOn: false, revealScale: 1, revealSnapshot: "", revealWipe: 0,',
@@ -833,7 +834,6 @@ document.addEventListener('DOMContentLoaded', async function() {
       }
       return source;
     }
-    template = patchAiNameReveal(template);
     template = patchAssembleMode(template);
 
     // Nested page bundles (iframe targets). Each ships ONCE, in the ROOT
