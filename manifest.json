@@ -2,7 +2,7 @@
   "name": "Flag Draw",
   "short_name": "Flag Draw",
   "description": "Livestream flag-guessing drawing game",
-  "version": "4",
+  "version": "5",
   "start_url": "/",
   "id": "/",
   "scope": "/",
