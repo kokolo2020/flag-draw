@@ -27,7 +27,7 @@
   <link rel="icon" href="/icon-192.png">
   <script>
     (function () {
-      var appVersion = 'v10';
+      var appVersion = 'v11';
       var installPromptAvailable = false;
       var isInstalled = false;
       window.__FLAG_DRAW_VERSION = appVersion;
@@ -72,16 +72,26 @@
       }
 
       function recoverStuckLoader() {
-        var recoveryParam = '__fd_recover';
-        var url;
-        try {
-          url = new URL(window.location.href);
-          if (url.searchParams.get(recoveryParam) === appVersion) return;
-          url.searchParams.set(recoveryParam, appVersion);
-        } catch (error) {
-          url = null;
-        }
+        registerServiceWorker();
+      }
 
+      function purgeOldAppCaches() {
+        var currentCache = 'flag-draw-' + appVersion;
+        if (!window.caches || !caches.keys) return;
+        caches.keys().then(function (keys) {
+          return Promise.all(keys.filter(function (key) {
+            return /^flag-draw-/.test(key) && key !== currentCache;
+          }).map(function (key) {
+            return caches.delete(key);
+          }));
+        }).catch(function (error) {
+          console.warn('[pwa] cache cleanup failed', error);
+        });
+      }
+
+      function registerServiceWorker() {
+        if (window.__flagDrawWebCleanupStarted) return;
+        window.__flagDrawWebCleanupStarted = true;
         var tasks = [];
         if ('serviceWorker' in navigator && navigator.serviceWorker.getRegistrations) {
           tasks.push(
@@ -103,66 +113,9 @@
             })
           );
         }
-
         Promise.all(tasks).catch(function (error) {
-          console.warn('[pwa] loading recovery failed', error);
-        }).then(function () {
-          if (url) {
-            window.location.replace(url.href);
-          } else {
-            window.location.reload();
-          }
+          console.warn('[web] old service worker cleanup failed', error);
         });
-      }
-
-      function purgeOldAppCaches() {
-        var currentCache = 'flag-draw-' + appVersion;
-        if (!window.caches || !caches.keys) return;
-        caches.keys().then(function (keys) {
-          return Promise.all(keys.filter(function (key) {
-            return /^flag-draw-/.test(key) && key !== currentCache;
-          }).map(function (key) {
-            return caches.delete(key);
-          }));
-        }).catch(function (error) {
-          console.warn('[pwa] cache cleanup failed', error);
-        });
-      }
-
-      function registerServiceWorker() {
-        if (!('serviceWorker' in navigator) || window.__flagDrawSwRegistered) return;
-        window.__flagDrawSwRegistered = true;
-        if (!window.__flagDrawControllerRefreshBound) {
-          window.__flagDrawControllerRefreshBound = true;
-          navigator.serviceWorker.addEventListener('controllerchange', function () {
-            if (window.__flagDrawControllerRefreshing) return;
-            if (!document.getElementById('__bundler_loading')) return;
-            window.__flagDrawControllerRefreshing = true;
-            window.location.reload();
-          });
-        }
-        navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
-          .then(function (registration) {
-            function activateWaiting(worker) {
-              if (worker && worker.postMessage) {
-                worker.postMessage({ type: 'SKIP_WAITING' });
-              }
-            }
-            if (registration.waiting) activateWaiting(registration.waiting);
-            registration.addEventListener('updatefound', function () {
-              var worker = registration.installing;
-              if (!worker) return;
-              worker.addEventListener('statechange', function () {
-                if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-                  activateWaiting(worker);
-                }
-              });
-            });
-            if (registration && registration.update) registration.update();
-          })
-          .catch(function (error) {
-            console.warn('[pwa] service worker registration failed', error);
-          });
       }
 
       function hideInstallButton() {
@@ -323,11 +276,11 @@ document.addEventListener('DOMContentLoaded', async function() {
   function setStatus(msg) { if (loading) loading.textContent = msg; }
   setTimeout(function() {
     if (!document.getElementById('__bundler_loading')) return;
-    setStatus('Loading latest version...');
+    setStatus('Still loading...');
     if (typeof window.__flagDrawRecoverLoading === 'function') {
       window.__flagDrawRecoverLoading();
     }
-  }, (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ? 6000 : 12000);
+  }, 30000);
 
   const FONT_MIME = /^(font[/]|application[/](x-)?font-|application[/]vnd\.ms-fontobject)/i;
   const MIME_TOKEN = /^[\w.+-]+[/][\w.+-]+$/;
