@@ -27,7 +27,7 @@
   <link rel="icon" href="/icon-192.png">
   <script>
     (function () {
-      var appVersion = 'v6';
+      var appVersion = 'v7';
       var installPromptEvent = null;
       var isInstalled = false;
       window.__FLAG_DRAW_VERSION = appVersion;
@@ -212,7 +212,23 @@
             hideInstallHelp();
             installPromptEvent = null;
             window.__pwaInstallPrompt = null;
-            promptEvent.prompt();
+            var promptTimeout = setTimeout(function () {
+              if (isInstalled) return;
+              showInstallHelp('If Chrome does not show the install prompt, use the Chrome menu (three dots), then Install app or Add to Home screen.');
+              updateInstallButton();
+            }, 8000);
+            try {
+              Promise.resolve(promptEvent.prompt()).catch(function (error) {
+                console.warn('[pwa] install prompt failed', error);
+              });
+            } catch (error) {
+              clearTimeout(promptTimeout);
+              installPromptEvent = promptEvent;
+              window.__pwaInstallPrompt = promptEvent;
+              console.warn('[pwa] install prompt failed', error);
+              updateInstallButton();
+              return;
+            }
             Promise.resolve(promptEvent.userChoice)
               .then(function (choice) {
                 if (choice && choice.outcome === 'accepted') {
@@ -222,7 +238,10 @@
                   updateInstallButton();
                 }
               })
-              .catch(updateInstallButton);
+              .catch(updateInstallButton)
+              .then(function () {
+                clearTimeout(promptTimeout);
+              });
           });
           document.body.appendChild(btn);
         }
@@ -347,6 +366,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     const manifest = JSON.parse(manifestEl.textContent);
     let template = JSON.parse(templateEl.textContent);
     function patchAssembleMode(source) {
+      // Assemble mode is intentionally disabled while the core game and PWA flow are stabilized.
+      return source;
       const patches = [
         [
           '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:#9b9797;margin-bottom:8px">Mode</div>\n            <div style="display:flex">',
