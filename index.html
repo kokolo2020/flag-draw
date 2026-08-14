@@ -25,9 +25,10 @@
   <meta name="apple-mobile-web-app-title" content="Flag Draw">
   <link rel="apple-touch-icon" href="/icon-192.png">
   <link rel="icon" href="/icon-192.png">
+  <style>#__pwa_install_btn,#__pwa_install_help{display:none!important}</style>
   <script>
     (function () {
-      var appVersion = 'v13';
+      var appVersion = 'v14';
       var installPromptAvailable = false;
       var isInstalled = false;
       window.__FLAG_DRAW_VERSION = appVersion;
@@ -226,8 +227,6 @@
         ensurePwaHead();
         registerServiceWorker();
         mountVersionLabel();
-        hideInstallButton();
-        return;
         if (!document.body || isInstalled || inStandaloneMode()) {
           hideInstallButton();
           return;
