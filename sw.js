@@ -1,4 +1,4 @@
-const CACHE = "flag-draw-v2";
+const CACHE = "flag-draw-v3";
 const CORE_ASSETS = ["/", "/index.html", "/manifest.json", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {

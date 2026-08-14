@@ -257,6 +257,11 @@ document.addEventListener('DOMContentLoaded', async function() {
 `    window.addEventListener("keydown", this.onKey);
     window.addEventListener("pointermove", this.onPieceMove);
     window.addEventListener("pointerup", this.onPieceUp);
+    window.addEventListener("pointercancel", this.onPieceUp);
+    window.addEventListener("touchstart", this.onPuzzleTouchStart, { capture: true, passive: false });
+    window.addEventListener("touchmove", this.onPuzzleTouchMove, { capture: true, passive: false });
+    window.addEventListener("touchend", this.onPuzzleTouchEnd, { capture: true, passive: false });
+    window.addEventListener("touchcancel", this.onPuzzleTouchEnd, { capture: true, passive: false });
     window.addEventListener("contextmenu", this.blockPuzzleContextMenu, { capture: true });
     window.addEventListener("dragstart", this.blockPuzzleContextMenu, { capture: true });
     window.addEventListener("selectstart", this.blockPuzzleContextMenu, { capture: true });
@@ -267,6 +272,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     window.removeEventListener("pointerup", this.onPieceUp);`,
 `    window.removeEventListener("pointermove", this.onPieceMove);
     window.removeEventListener("pointerup", this.onPieceUp);
+    window.removeEventListener("pointercancel", this.onPieceUp);
+    window.removeEventListener("touchstart", this.onPuzzleTouchStart, { capture: true });
+    window.removeEventListener("touchmove", this.onPuzzleTouchMove, { capture: true });
+    window.removeEventListener("touchend", this.onPuzzleTouchEnd, { capture: true });
+    window.removeEventListener("touchcancel", this.onPuzzleTouchEnd, { capture: true });
     window.removeEventListener("contextmenu", this.blockPuzzleContextMenu, { capture: true });
     window.removeEventListener("dragstart", this.blockPuzzleContextMenu, { capture: true });
     window.removeEventListener("selectstart", this.blockPuzzleContextMenu, { capture: true });`
@@ -293,6 +303,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (e && e.preventDefault) e.preventDefault();
     if (e && e.stopPropagation) e.stopPropagation();
     if (this.state.guideMode !== "assemble" || this.flag.cc !== "ca") return;
+    this.activePuzzleTouchId = null;
     if (e && e.currentTarget && e.pointerId != null && e.currentTarget.setPointerCapture) {
       try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
     }
@@ -302,6 +313,14 @@ document.addEventListener('DOMContentLoaded', async function() {
       dragY: e && typeof e.clientY === "number" ? e.clientY : 0,
     });
   };
+  puzzleEventNode(e) {
+    return e && e.target && e.target.nodeType === 1 ? e.target : (e && e.target && e.target.parentElement);
+  }
+  puzzlePieceFromEvent(e) {
+    const node = this.puzzleEventNode(e);
+    const piece = node && node.closest && node.closest("[data-puzzle-piece]");
+    return piece && piece.dataset ? piece.dataset.puzzlePiece : null;
+  }
   puzzleZoneAt(piece, x, y) {
     const zones = piece === "leaf"
       ? [["leaf", this.leafZoneRef.current]]
@@ -320,6 +339,56 @@ document.addEventListener('DOMContentLoaded', async function() {
     if ((piece === "left" || piece === "right") && zone === piece) return piece;
     return null;
   }
+  puzzleTouchPoint(e) {
+    const lists = [e && e.changedTouches, e && e.touches];
+    for (const list of lists) {
+      if (!list || !list.length) continue;
+      if (this.activePuzzleTouchId != null) {
+        for (let i = 0; i < list.length; i++) {
+          if (list[i].identifier === this.activePuzzleTouchId) return list[i];
+        }
+      }
+      return list[0];
+    }
+    return null;
+  }
+  stopPuzzleTouch(e) {
+    if (e && e.cancelable && e.preventDefault) e.preventDefault();
+    if (e && e.stopPropagation) e.stopPropagation();
+  }
+  onPuzzleTouchStart = (e) => {
+    if (this.state.guideMode !== "assemble" || this.flag.cc !== "ca") return;
+    const piece = this.puzzlePieceFromEvent(e);
+    if (!piece) return;
+    const touch = this.puzzleTouchPoint(e);
+    if (!touch) return;
+    this.stopPuzzleTouch(e);
+    this.activePuzzleTouchId = touch.identifier;
+    this.setState({ draggingPiece: piece, dragX: touch.clientX, dragY: touch.clientY });
+  };
+  onPuzzleTouchMove = (e) => {
+    if (!this.state.draggingPiece) return;
+    const touch = this.puzzleTouchPoint(e);
+    if (!touch) return;
+    this.stopPuzzleTouch(e);
+    this.setState({ dragX: touch.clientX, dragY: touch.clientY });
+  };
+  onPuzzleTouchEnd = (e) => {
+    const piece = this.state.draggingPiece;
+    if (!piece) return;
+    const touch = this.puzzleTouchPoint(e);
+    this.stopPuzzleTouch(e);
+    const x = touch ? touch.clientX : this.state.dragX;
+    const y = touch ? touch.clientY : this.state.dragY;
+    const target = this.puzzleDropTarget(piece, x, y);
+    this.activePuzzleTouchId = null;
+    this.setState((s) => ({
+      draggingPiece: null,
+      dragX: 0,
+      dragY: 0,
+      puzzlePlaced: target ? { ...s.puzzlePlaced, [target]: true } : s.puzzlePlaced,
+    }));
+  };
   onPieceMove = (e) => {
     if (!this.state.draggingPiece) return;
     if (e && e.cancelable && e.preventDefault) e.preventDefault();
@@ -339,7 +408,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   };
   blockPuzzleContextMenu = (e) => {
     if (this.state.guideMode !== "assemble") return;
-    const node = e.target && e.target.nodeType === 1 ? e.target : (e.target && e.target.parentElement);
+    const node = this.puzzleEventNode(e);
     const target = node && node.closest && node.closest("[data-puzzle-piece],[data-puzzle-tray],[data-zone]");
     if (!target) return;
     if (e.preventDefault) e.preventDefault();
@@ -383,6 +452,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         [
           'border: "2px solid #f4f1e8", boxShadow: "0 8px 20px rgba(0,0,0,0.4)",',
           'border: "2px solid #f4f1e8", boxShadow: "0 8px 20px rgba(0,0,0,0.4)", touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none", WebkitUserDrag: "none",'
+        ],
+        [
+          'transition: "transform 620ms cubic-bezier(0.2,0,0,1)",\n      },\n      canvasStyle:',
+          'transition: "transform 620ms cubic-bezier(0.2,0,0,1)",\n        pointerEvents: (s.guideMode === "assemble" || s.guideMode === "ai") && !revealed ? "none" : "auto",\n      },\n      canvasStyle:'
         ],
         [
 `      modeButtons: [
