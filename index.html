@@ -27,7 +27,7 @@
   <link rel="icon" href="/icon-192.png">
   <script>
     (function () {
-      var appVersion = 'v5';
+      var appVersion = 'v6';
       var installPromptEvent = null;
       var isInstalled = false;
       window.__FLAG_DRAW_VERSION = appVersion;
@@ -130,6 +130,31 @@
       function hideInstallButton() {
         var btn = document.getElementById('__pwa_install_btn');
         if (btn) btn.remove();
+        hideInstallHelp();
+      }
+
+      function hideInstallHelp() {
+        var help = document.getElementById('__pwa_install_help');
+        if (help) help.remove();
+        if (window.__flagDrawInstallHelpTimer) {
+          clearTimeout(window.__flagDrawInstallHelpTimer);
+          window.__flagDrawInstallHelpTimer = null;
+        }
+      }
+
+      function showInstallHelp(message) {
+        if (!document.body) return;
+        var help = document.getElementById('__pwa_install_help');
+        if (!help) {
+          help = document.createElement('div');
+          help.id = '__pwa_install_help';
+          help.setAttribute('role', 'status');
+          help.style.cssText = 'position:fixed;right:18px;bottom:82px;z-index:2147483647;max-width:min(330px,calc(100vw - 36px));padding:12px 14px;border:2px solid #201e1d;background:#f3f2f2;color:#201e1d;font:800 13px/1.35 -apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:.02em;box-shadow:3px 3px 0 #201e1d';
+          document.body.appendChild(help);
+        }
+        help.textContent = message;
+        if (window.__flagDrawInstallHelpTimer) clearTimeout(window.__flagDrawInstallHelpTimer);
+        window.__flagDrawInstallHelpTimer = setTimeout(hideInstallHelp, 9000);
       }
 
       function mountVersionLabel() {
@@ -156,7 +181,7 @@
         btn.setAttribute('aria-disabled', installPromptEvent ? 'false' : 'true');
         btn.title = installPromptEvent
           ? 'Install Flag Draw'
-          : 'Install will be available when Chrome is ready';
+          : 'Tap for Chrome install instructions';
       }
 
       window.__flagDrawMountInstallButton = function () {
@@ -173,10 +198,18 @@
           btn.type = 'button';
           btn.textContent = 'INSTALL APP';
           btn.setAttribute('aria-label', 'Install Flag Draw app');
-          btn.style.cssText = 'position:fixed;right:18px;bottom:18px;z-index:2147483647;min-width:132px;padding:14px 18px;border:2px solid #201e1d;border-radius:0;background:#ec3013;color:#fff;font:800 15px/1.2 -apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;box-shadow:3px 3px 0 #201e1d;display:block';
+          btn.style.cssText = 'position:fixed;right:18px;bottom:18px;z-index:2147483647;min-width:132px;padding:14px 18px;border:2px solid #201e1d;border-radius:0;background:#ec3013;color:#fff;font:800 15px/1.2 -apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;box-shadow:3px 3px 0 #201e1d;display:block;touch-action:manipulation';
           btn.addEventListener('click', function () {
             var promptEvent = installPromptEvent;
-            if (!promptEvent) return;
+            if (!promptEvent) {
+              registerServiceWorker();
+              if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+                navigator.serviceWorker.ready.then(updateInstallButton).catch(function () {});
+              }
+              showInstallHelp('Chrome has not opened the native prompt yet. Tap the Chrome menu (three dots), then Install app or Add to Home screen.');
+              return;
+            }
+            hideInstallHelp();
             installPromptEvent = null;
             window.__pwaInstallPrompt = null;
             promptEvent.prompt();
@@ -229,6 +262,7 @@
         event.preventDefault();
         installPromptEvent = event;
         window.__pwaInstallPrompt = event;
+        hideInstallHelp();
         window.dispatchEvent(new CustomEvent('pwa-install-available'));
         updateInstallButton();
       });
@@ -238,8 +272,11 @@
         window.__pwaInstallPrompt = null;
         isInstalled = true;
         hideInstallButton();
+        hideInstallHelp();
       });
 
+      registerServiceWorker();
+      document.addEventListener('DOMContentLoaded', registerServiceWorker, { once: true });
       window.addEventListener('load', registerServiceWorker, { once: true });
       window.addEventListener('pwa-install-available', updateInstallButton);
       window.__flagDrawRecoverLoading = recoverStuckLoader;
@@ -322,6 +359,42 @@ document.addEventListener('DOMContentLoaded', async function() {
         [
           'title="Tap to place"',
           'title="Drag to place"'
+        ],
+        [
+`    const hintPct = s.hintOn && s.phase === "draw"
+      ? Math.max(0, Math.min(90, Math.floor((this.activeRoundSeconds - s.timeLeft) / 10) * 10))
+      : 0;`,
+`    const hintPct = s.hintOn && s.phase === "draw"
+      ? Math.max(0, Math.min(90, Math.floor((this.activeRoundSeconds - s.timeLeft) / 10) * 10))
+      : 0;
+    const puzzleSpec = this.getPuzzleSpec(flag);
+    const puzzlePieces = puzzleSpec ? puzzleSpec.pieces : [];
+    const puzzleNeeds = (piece) => puzzlePieces.includes(piece);
+    const puzzleComplete = !!puzzleSpec && puzzlePieces.every((piece) => s.puzzlePlaced[piece]);
+    const puzzleColor = (piece) => puzzleSpec && puzzleSpec.colors[piece] ? puzzleSpec.colors[piece] : "transparent";
+    const puzzleIsRows = puzzleSpec && puzzleSpec.layout === "rows";
+    const puzzleIsJapan = puzzleSpec && puzzleSpec.layout === "japan";
+    const puzzleLogoKind = puzzleSpec ? puzzleSpec.logo : "";
+    const puzzleBlank = "rgba(244,241,232,0.06)";
+    const mapleClip = "polygon(50% 0%,58% 22%,72% 13%,68% 32%,88% 28%,76% 45%,96% 50%,72% 57%,80% 77%,60% 68%,54% 100%,46% 100%,40% 68%,20% 77%,28% 57%,4% 50%,24% 45%,12% 28%,32% 32%,28% 13%,42% 22%)";
+    const puzzleZoneFill = (piece) => {
+      if (!puzzleSpec) return puzzleBlank;
+      if (puzzleIsJapan) return "#ffffff";
+      return s.puzzlePlaced[piece] ? puzzleColor(piece) : puzzleBlank;
+    };
+    const puzzleStripePieceStyle = (piece) => ({
+      display: puzzleSpec && puzzleNeeds(piece) && !s.puzzlePlaced[piece] ? "block" : "none",
+      width: 70, height: puzzleIsRows ? 40 : 46, background: puzzleColor(piece),
+      cursor: "pointer", border: "2px solid #f4f1e8", touchAction: "none",
+      userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none", WebkitUserDrag: "none",
+    });
+    const puzzleLogoShape = (placed) => ({
+      display: puzzleSpec && puzzleNeeds("leaf") && (placed ? s.puzzlePlaced.leaf : !s.puzzlePlaced.leaf) ? "block" : "none",
+      width: placed ? (puzzleLogoKind === "maple" ? "92%" : "62%") : 34,
+      height: placed ? (puzzleLogoKind === "maple" ? "98%" : "62%") : 34,
+      background: puzzleColor("leaf"), borderRadius: puzzleLogoKind === "disc" ? "50%" : 0,
+      clipPath: puzzleLogoKind === "maple" ? mapleClip : "none",
+    });`
         ],
         [
 `    window.addEventListener("keydown", this.onKey);
@@ -490,6 +563,24 @@ document.addEventListener('DOMContentLoaded', async function() {
   resetPuzzle = () => this.setState({ puzzlePlaced: { left: false, center: false, right: false, leaf: false }, draggingPiece: null });`
         ],
         [
+          '  setGuideMode = (m) => this.setState((s) => ({',
+`  getPuzzleSpec(flag = this.flag) {
+    const specs = {
+      ca: { layout: "columns", logo: "maple", pieces: ["left", "center", "right", "leaf"], colors: { left: "#D80621", center: "#ffffff", right: "#D80621", leaf: "#D80621" } },
+      jp: { layout: "japan", logo: "disc", pieces: ["leaf"], colors: { left: "#ffffff", center: "#ffffff", right: "#ffffff", leaf: "#BC002D" } },
+      fr: { layout: "columns", pieces: ["left", "center", "right"], colors: { left: "#002395", center: "#ffffff", right: "#ED2939" } },
+      it: { layout: "columns", pieces: ["left", "center", "right"], colors: { left: "#009246", center: "#ffffff", right: "#CE2B37" } },
+      de: { layout: "rows", pieces: ["left", "center", "right"], colors: { left: "#000000", center: "#DD0000", right: "#FFCE00" } },
+    };
+    return flag && flag.cc ? specs[flag.cc] || null : null;
+  }
+  setGuideMode = (m) => this.setState((s) => ({`
+        ],
+        [
+          'this.flag.cc !== "ca"',
+          '!this.getPuzzleSpec(this.flag)'
+        ],
+        [
           '<div style="{{ puzzleTrayStyle }}">',
           '<div data-puzzle-tray="true" style="{{ puzzleTrayStyle }}">'
         ],
@@ -508,6 +599,127 @@ document.addEventListener('DOMContentLoaded', async function() {
         [
           '<div sc-camel-on-pointer-down="{{ downLeaf }}" style="{{ pieceLeafStyle }}" title="Drag to place">🍁</div>',
           '<div data-puzzle-piece="leaf" draggable="false" sc-camel-on-pointer-down="{{ downLeaf }}" style="{{ pieceLeafStyle }}" title="Drag to place">🍁</div>'
+        ],
+        [
+          '<sc-if value="{{ puzzlePlacedLeaf }}" hint-placeholder-val="{{ false }}">🍁</sc-if>',
+          '<div style="{{ puzzleLogoDisplayStyle }}"></div>'
+        ],
+        [
+          '<div data-puzzle-piece="leaf" draggable="false" sc-camel-on-pointer-down="{{ downLeaf }}" style="{{ pieceLeafStyle }}" title="Drag to place">🍁</div>',
+          '<div data-puzzle-piece="leaf" draggable="false" sc-camel-on-pointer-down="{{ downLeaf }}" style="{{ pieceLeafStyle }}" title="Drag to place"><div style="{{ pieceLogoStyle }}"></div></div>'
+        ],
+        [
+          'This is a prototype — only Canada has pieces built so far. Try it on the Canada round!',
+          'Pieces are ready for Canada, Japan, France, Italy, and Germany. Request one of those flags to assemble it.'
+        ],
+        [
+          'isPuzzleFlag: flag.cc === "ca",',
+          'isPuzzleFlag: !!puzzleSpec,'
+        ],
+        [
+          'display: s.guideMode === "assemble" && flag.cc !== "ca" && !revealed ? "flex" : "none",',
+          'display: s.guideMode === "assemble" && !puzzleSpec && !revealed ? "flex" : "none",'
+        ],
+        [
+          'display: s.guideMode === "assemble" && flag.cc === "ca" && !revealed ? "grid" : "none",',
+          'display: s.guideMode === "assemble" && puzzleSpec && !revealed ? "grid" : "none",'
+        ],
+        [
+          'width: "min(700px, 60%)", aspectRatio: "3 / 2", gridTemplateColumns: "1fr 2fr 1fr",',
+          'width: "min(700px, 60%)", aspectRatio: "3 / 2", gridTemplateColumns: puzzleIsRows ? "1fr" : "1fr 2fr 1fr", gridTemplateRows: puzzleIsRows ? "1fr 1fr 1fr" : "1fr", background: puzzleIsJapan ? "#ffffff" : "transparent",'
+        ],
+        [
+`      puzzleZoneLeft: {
+        background: s.puzzlePlaced.left ? "#D80621" : "rgba(244,241,232,0.06)",
+        borderRight: "1px dashed rgba(244,241,232,0.4)",
+      },
+      puzzleZoneCenter: {
+        position: "relative", background: s.puzzlePlaced.center ? "#ffffff" : "rgba(244,241,232,0.06)",
+        display: "grid", placeItems: "center",
+      },
+      puzzleZoneRight: {
+        background: s.puzzlePlaced.right ? "#D80621" : "rgba(244,241,232,0.06)",
+        borderLeft: "1px dashed rgba(244,241,232,0.4)",
+      },
+      puzzleLeafZoneStyle: {
+        width: "42%", aspectRatio: "1", borderRadius: "50%",
+        border: "2px dashed rgba(32,30,29,0.4)", display: "grid", placeItems: "center", fontSize: 40,
+      },
+      puzzleTrayStyle: {
+        display: s.guideMode === "assemble" && flag.cc === "ca" && !revealed ? "flex" : "none",
+        position: "absolute", left: "50%", bottom: 32, transform: "translateX(-50%)",
+        gap: 16, padding: 16, background: "rgba(20,45,37,0.7)", border: "2px solid #f4f1e8",
+      },
+      pieceLeftStyle: { display: s.puzzlePlaced.left ? "none" : "block", width: 70, height: 46, background: "#D80621", cursor: "pointer", border: "2px solid #f4f1e8", touchAction: "none" },
+      pieceCenterStyle: { display: s.puzzlePlaced.center ? "none" : "block", width: 70, height: 46, background: "#ffffff", cursor: "pointer", border: "2px solid #f4f1e8", touchAction: "none" },
+      pieceRightStyle: { display: s.puzzlePlaced.right ? "none" : "block", width: 70, height: 46, background: "#D80621", cursor: "pointer", border: "2px solid #f4f1e8", touchAction: "none" },
+      pieceLeafStyle: { display: s.puzzlePlaced.leaf ? "none" : "grid", placeItems: "center", width: 70, height: 46, background: "transparent", cursor: "pointer", border: "2px dashed #f4f1e8", fontSize: 26, touchAction: "none" },
+      puzzleSolved: s.puzzlePlaced.left && s.puzzlePlaced.center && s.puzzlePlaced.right && s.puzzlePlaced.leaf,
+      puzzlePlacedLeaf: s.puzzlePlaced.leaf,
+      puzzleSolvedBannerStyle: {
+        display: (s.puzzlePlaced.left && s.puzzlePlaced.center && s.puzzlePlaced.right && s.puzzlePlaced.leaf) ? "block" : "none",`,
+`      puzzleZoneLeft: {
+        background: puzzleZoneFill("left"),
+        borderRight: !puzzleIsRows && !puzzleIsJapan ? "1px dashed rgba(244,241,232,0.4)" : "none",
+        borderBottom: puzzleIsRows ? "1px dashed rgba(244,241,232,0.4)" : "none",
+      },
+      puzzleZoneCenter: {
+        position: "relative", background: puzzleZoneFill("center"),
+        display: "grid", placeItems: "center",
+        borderBottom: puzzleIsRows ? "1px dashed rgba(244,241,232,0.4)" : "none",
+      },
+      puzzleZoneRight: {
+        background: puzzleZoneFill("right"),
+        borderLeft: !puzzleIsRows && !puzzleIsJapan ? "1px dashed rgba(244,241,232,0.4)" : "none",
+      },
+      puzzleLeafZoneStyle: {
+        width: puzzleLogoKind === "maple" ? "58%" : "54%", aspectRatio: "1", borderRadius: "50%",
+        border: puzzleSpec && puzzleNeeds("leaf") && !s.puzzlePlaced.leaf ? "2px dashed rgba(32,30,29,0.4)" : "none",
+        display: puzzleSpec && puzzleNeeds("leaf") ? "grid" : "none", placeItems: "center",
+      },
+      puzzleLogoDisplayStyle: puzzleLogoShape(true),
+      puzzleTrayStyle: {
+        display: s.guideMode === "assemble" && puzzleSpec && !revealed ? "flex" : "none",
+        position: "absolute", left: "50%", bottom: 32, transform: "translateX(-50%)",
+        gap: 16, padding: 16, background: "rgba(20,45,37,0.7)", border: "2px solid #f4f1e8",
+      },
+      pieceLeftStyle: puzzleStripePieceStyle("left"),
+      pieceCenterStyle: puzzleStripePieceStyle("center"),
+      pieceRightStyle: puzzleStripePieceStyle("right"),
+      pieceLeafStyle: {
+        display: puzzleSpec && puzzleNeeds("leaf") && !s.puzzlePlaced.leaf ? "grid" : "none",
+        placeItems: "center", width: 70, height: 46, background: "transparent",
+        cursor: "pointer", border: "2px dashed #f4f1e8", touchAction: "none",
+        userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none", WebkitUserDrag: "none",
+      },
+      pieceLogoStyle: puzzleLogoShape(false),
+      puzzleSolved: puzzleComplete,
+      puzzlePlacedLeaf: s.puzzlePlaced.leaf,
+      puzzleSolvedBannerStyle: {
+        display: puzzleComplete ? "block" : "none",`
+        ],
+        [
+`      floatingPieceStyle: {
+        display: s.draggingPiece ? "flex" : "none",
+        position: "fixed", left: s.dragX, top: s.dragY, transform: "translate(-50%,-50%)",
+        width: 70, height: 46, zIndex: 999, pointerEvents: "none",
+        alignItems: "center", justifyContent: "center", fontSize: 26,
+        background: s.draggingPiece === "leaf" ? "transparent" : (s.draggingPiece === "center" ? "#ffffff" : "#D80621"),
+        border: "2px solid #f4f1e8", boxShadow: "0 8px 20px rgba(0,0,0,0.4)",
+      },
+      floatingPieceLabel: s.draggingPiece === "leaf" ? "🍁" : "",`,
+`      floatingPieceStyle: {
+        display: s.draggingPiece ? "flex" : "none",
+        position: "fixed", left: s.dragX, top: s.dragY, transform: "translate(-50%,-50%)",
+        width: 70, height: s.draggingPiece === "leaf" || !puzzleIsRows ? 46 : 40, zIndex: 999, pointerEvents: "none",
+        alignItems: "center", justifyContent: "center",
+        background: s.draggingPiece ? (s.draggingPiece === "leaf" ? puzzleColor("leaf") : puzzleColor(s.draggingPiece)) : "transparent",
+        border: s.draggingPiece === "leaf" ? "none" : "2px solid #f4f1e8",
+        borderRadius: s.draggingPiece === "leaf" && puzzleLogoKind === "disc" ? "50%" : 0,
+        clipPath: s.draggingPiece === "leaf" && puzzleLogoKind === "maple" ? mapleClip : "none",
+        boxShadow: "0 8px 20px rgba(0,0,0,0.4)",
+      },
+      floatingPieceLabel: "",`
         ],
         [
           'border: "2px solid #f4f1e8", overflow: "hidden",',
