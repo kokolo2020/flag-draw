@@ -28,7 +28,7 @@
   <style>#__pwa_install_btn,#__pwa_install_help{display:none!important}</style>
   <script>
     (function () {
-      var appVersion = 'v16';
+      var appVersion = 'v17';
       var installPromptAvailable = false;
       var isInstalled = false;
       window.__FLAG_DRAW_VERSION = appVersion;
@@ -860,7 +860,7 @@ document.addEventListener('DOMContentLoaded', async function() {
           `state = {
     scale: 1, showMapIntro: true, vw: 0, vh: 0, phase: "idle",`,
           `state = {
-    scale: 1, showMapIntro: true, compareOn: false, compareA: "Canada", compareB: "Japan", compareInputA: "Canada", compareInputB: "Japan", compareError: "", vw: 0, vh: 0, phase: "idle",`
+    scale: 1, showMapIntro: true, compareOn: false, compareCount: 2, compareA: "Canada", compareB: "Japan", compareC: "Brazil", compareD: "India", compareInputA: "Canada", compareInputB: "Japan", compareInputC: "Brazil", compareInputD: "India", compareError: "", vw: 0, vh: 0, phase: "idle",`
         ],
         [
           `  toggleFavorite = (name) => {`,
@@ -876,23 +876,39 @@ document.addEventListener('DOMContentLoaded', async function() {
   };
   setCompareInputA = (e) => this.setState({ compareInputA: e.target.value, compareError: "" });
   setCompareInputB = (e) => this.setState({ compareInputB: e.target.value, compareError: "" });
+  setCompareInputC = (e) => this.setState({ compareInputC: e.target.value, compareError: "" });
+  setCompareInputD = (e) => this.setState({ compareInputD: e.target.value, compareError: "" });
+  setCompareCount = (count) => this.setState({ compareCount: Math.max(2, Math.min(4, count)), compareError: "" });
   showCountryComparison = () => {
-    const a = this.findFlagByName(this.state.compareInputA);
-    const b = this.findFlagByName(this.state.compareInputB);
-    if (!a || !b) {
-      this.setState({ compareError: "Use two country names from the Flags deck." });
+    const count = Math.max(2, Math.min(4, this.state.compareCount || 2));
+    const inputs = [this.state.compareInputA, this.state.compareInputB, this.state.compareInputC, this.state.compareInputD].slice(0, count);
+    const matches = inputs.map((name) => this.findFlagByName(name));
+    if (matches.some((match) => !match)) {
+      this.setState({ compareError: \`Use \${count} country names from the Flags deck.\` });
       return;
     }
     this.setState({
-      compareOn: true, compareA: a.name, compareB: b.name,
-      compareInputA: a.name, compareInputB: b.name, compareError: "",
+      compareOn: true, compareCount: count,
+      compareA: matches[0].name, compareB: matches[1].name,
+      compareC: matches[2] ? matches[2].name : this.state.compareC,
+      compareD: matches[3] ? matches[3].name : this.state.compareD,
+      compareInputA: matches[0].name, compareInputB: matches[1].name,
+      compareInputC: matches[2] ? matches[2].name : this.state.compareInputC,
+      compareInputD: matches[3] ? matches[3].name : this.state.compareInputD,
+      compareError: "",
       running: false,
     });
   };
   hideCountryComparison = () => this.setState({ compareOn: false, compareError: "" });
   quickCompareCanadaJapan = () => this.setState({
-    compareOn: true, compareA: "Canada", compareB: "Japan",
+    compareOn: true, compareCount: 2, compareA: "Canada", compareB: "Japan",
     compareInputA: "Canada", compareInputB: "Japan", compareError: "", running: false,
+  });
+  quickCompareFourCountries = () => this.setState({
+    compareOn: true, compareCount: 4,
+    compareA: "Canada", compareB: "Japan", compareC: "Brazil", compareD: "India",
+    compareInputA: "Canada", compareInputB: "Japan", compareInputC: "Brazil", compareInputD: "India",
+    compareError: "", running: false,
   });
   toggleFavorite = (name) => {`
         ],
@@ -949,14 +965,22 @@ document.addEventListener('DOMContentLoaded', async function() {
         </div>
 
         <div style="padding:20px 24px;border-bottom:2px solid #201e1d">
-          <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:#9b9797;margin-bottom:10px">Country comparison</div>
-          <div style="display:flex;gap:8px;margin-bottom:8px">
-            <input type="text" placeholder="Canada" value="{{ compareInputAValue }}" sc-camel-on-input="{{ onCompareInputA }}" style="height:40px;padding:0 10px;border:2px solid #201e1d;font-family:inherit;font-size:13px;flex:1;min-width:0">
-            <input type="text" placeholder="Japan" value="{{ compareInputBValue }}" sc-camel-on-input="{{ onCompareInputB }}" style="height:40px;padding:0 10px;border:2px solid #201e1d;font-family:inherit;font-size:13px;flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:#9b9797;margin-bottom:10px">Country comparison {{ compareCountLabel }}</div>
+          <div style="display:flex;gap:6px;margin-bottom:8px">
+            <sc-for list="{{ compareCountOptions }}" as="co" hint-placeholder-count="3">
+              <button sc-camel-on-click="{{ co.pick }}" style="{{ co.style }}">{{ co.label }}</button>
+            </sc-for>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+            <input type="text" placeholder="Canada" value="{{ compareInputAValue }}" sc-camel-on-input="{{ onCompareInputA }}" style="{{ compareInputAStyle }}">
+            <input type="text" placeholder="Japan" value="{{ compareInputBValue }}" sc-camel-on-input="{{ onCompareInputB }}" style="{{ compareInputBStyle }}">
+            <input type="text" placeholder="Brazil" value="{{ compareInputCValue }}" sc-camel-on-input="{{ onCompareInputC }}" style="{{ compareInputCStyle }}">
+            <input type="text" placeholder="India" value="{{ compareInputDValue }}" sc-camel-on-input="{{ onCompareInputD }}" style="{{ compareInputDStyle }}">
           </div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <button sc-camel-on-click="{{ showCountryComparison }}" style="{{ comparePrimaryBtnStyle }}">Compare</button>
             <button sc-camel-on-click="{{ quickCompareCanadaJapan }}" style="{{ compareSecondaryBtnStyle }}">Canada vs Japan</button>
+            <button sc-camel-on-click="{{ quickCompareFourCountries }}" style="{{ compareSecondaryBtnStyle }}">4 popular</button>
             <button sc-camel-on-click="{{ hideCountryComparison }}" style="{{ compareSecondaryBtnStyle }}">Hide</button>
           </div>
           <sc-if value="{{ hasCompareError }}" hint-placeholder-val="{{ false }}">
@@ -978,6 +1002,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     const fmtMoney = (value) => value ? "$" + value.toLocaleString() : "-";
     const fmtLife = (value) => value ? value + " yrs" : "-";
     const flagByName = (name) => FLAGS.find((f) => f.name === name) || FLAGS.find((f) => f.name.toLowerCase() === String(name || "").toLowerCase());
+    const compareCount = Math.max(2, Math.min(4, s.compareCount || 2));
+    const compareCompact = compareCount > 2;
+    const compareVeryCompact = compareCount > 3;
     const makeCompareCard = (name, accent) => {
       const countryFlag = flagByName(name) || FLAGS[0];
       const stats = COUNTRY_STATS[countryFlag.name] || {};
@@ -985,33 +1012,41 @@ document.addEventListener('DOMContentLoaded', async function() {
         name: countryFlag.name,
         flagSrc: countryFlag.cc ? \`https://flagcdn.com/\${countryFlag.cc}.svg\` : "",
         cardStyle: {
-          display: "flex", flexDirection: "column", gap: 16, padding: "22px 24px",
+          display: "flex", flexDirection: "column",
+          gap: compareVeryCompact ? 8 : compareCompact ? 10 : 16,
+          padding: compareVeryCompact ? "14px 14px" : compareCompact ? "16px 16px" : "22px 24px",
           background: "#f3f2f2", color: "#201e1d", border: "2px solid #201e1d",
           boxShadow: "8px 8px 0 rgba(0,0,0,0.22)", minWidth: 0,
         },
         nameStyle: {
-          fontSize: 42, fontWeight: 800, textTransform: "uppercase",
+          fontSize: compareVeryCompact ? 24 : compareCompact ? 28 : 42,
+          fontWeight: 800, textTransform: "uppercase",
           letterSpacing: "0.02em", color: accent, lineHeight: 0.95,
+          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
         },
         flagBoxStyle: {
-          width: "100%", aspectRatio: countryFlag.square ? "1 / 1" : "3 / 2",
+          width: "100%",
+          height: compareVeryCompact ? 132 : compareCompact ? 170 : "auto",
+          aspectRatio: compareCompact ? "auto" : (countryFlag.square ? "1 / 1" : "3 / 2"),
           border: "2px solid #201e1d", overflow: "hidden", background: "#fff",
         },
-        flagImgStyle: { width: "100%", height: "100%", objectFit: "cover", display: "block" },
-        statsStyle: { display: "flex", flexDirection: "column", gap: 8 },
-        statRowStyle: { display: "flex", justifyContent: "space-between", gap: 16, alignItems: "baseline" },
-        statLabelStyle: { fontSize: 16, color: "#605d5d", fontWeight: 600 },
-        capStyle: { fontSize: 24, color: "#2F6DE0", fontWeight: 800, textAlign: "right" },
-        popStyle: { fontSize: 24, color: "#a46f00", fontWeight: 800, textAlign: "right" },
-        gdpStyle: { fontSize: 24, color: "#15834d", fontWeight: 800, textAlign: "right" },
-        lifeStyle: { fontSize: 24, color: "#c13f70", fontWeight: 800, textAlign: "right" },
+        flagImgStyle: { width: "100%", height: "100%", objectFit: "contain", display: "block" },
+        statsStyle: { display: "flex", flexDirection: "column", gap: compareVeryCompact ? 5 : compareCompact ? 6 : 8 },
+        statRowStyle: { display: "flex", justifyContent: "space-between", gap: compareCompact ? 8 : 16, alignItems: "baseline" },
+        statLabelStyle: { fontSize: compareVeryCompact ? 10 : compareCompact ? 12 : 16, color: "#605d5d", fontWeight: 600 },
+        capStyle: { fontSize: compareVeryCompact ? 14 : compareCompact ? 16 : 24, color: "#2F6DE0", fontWeight: 800, textAlign: "right" },
+        popStyle: { fontSize: compareVeryCompact ? 14 : compareCompact ? 16 : 24, color: "#a46f00", fontWeight: 800, textAlign: "right" },
+        gdpStyle: { fontSize: compareVeryCompact ? 14 : compareCompact ? 16 : 24, color: "#15834d", fontWeight: 800, textAlign: "right" },
+        lifeStyle: { fontSize: compareVeryCompact ? 14 : compareCompact ? 16 : 24, color: "#c13f70", fontWeight: 800, textAlign: "right" },
         cap: stats.cap || "-",
         pop: fmtNumber(stats.pop),
         gdp: fmtMoney(stats.gdppc),
         life: fmtLife(stats.life),
       };
     };
-    const compareCards = [makeCompareCard(s.compareA, "#ec3013"), makeCompareCard(s.compareB, "#2F6DE0")];`
+    const compareNames = [s.compareA, s.compareB, s.compareC, s.compareD].slice(0, compareCount);
+    const compareAccents = ["#ec3013", "#2F6DE0", "#15834d", "#a46f00"];
+    const compareCards = compareNames.map((name, i) => makeCompareCard(name, compareAccents[i]));`
         ],
         [
           `      requestCountLabel: s.requestQueue.length ? \`(\${s.requestQueue.length} queued — tap to draw next)\` : "",
@@ -1046,11 +1081,46 @@ document.addEventListener('DOMContentLoaded', async function() {
       }),
       compareInputAValue: s.compareInputA,
       compareInputBValue: s.compareInputB,
+      compareInputCValue: s.compareInputC,
+      compareInputDValue: s.compareInputD,
       onCompareInputA: this.setCompareInputA,
       onCompareInputB: this.setCompareInputB,
+      onCompareInputC: this.setCompareInputC,
+      onCompareInputD: this.setCompareInputD,
       showCountryComparison: this.showCountryComparison,
       hideCountryComparison: this.hideCountryComparison,
       quickCompareCanadaJapan: this.quickCompareCanadaJapan,
+      quickCompareFourCountries: this.quickCompareFourCountries,
+      compareCountLabel: \`(\${compareCount})\`,
+      compareCountOptions: [2, 3, 4].map((n) => ({
+        label: String(n),
+        pick: () => this.setCompareCount(n),
+        style: {
+          height: 34, minWidth: 42, padding: "0 10px", border: "2px solid #201e1d",
+          background: compareCount === n ? "#201e1d" : "transparent",
+          color: compareCount === n ? "#f3f2f2" : "#201e1d",
+          fontFamily: "inherit", fontSize: 13, fontWeight: 800,
+          cursor: "pointer",
+        },
+      })),
+      compareInputAStyle: {
+        height: 40, padding: "0 10px", border: "2px solid #201e1d",
+        fontFamily: "inherit", fontSize: 13, minWidth: 0, width: "100%", boxSizing: "border-box",
+      },
+      compareInputBStyle: {
+        height: 40, padding: "0 10px", border: "2px solid #201e1d",
+        fontFamily: "inherit", fontSize: 13, minWidth: 0, width: "100%", boxSizing: "border-box",
+      },
+      compareInputCStyle: {
+        height: 40, padding: "0 10px", border: "2px solid #201e1d",
+        fontFamily: "inherit", fontSize: 13, minWidth: 0, width: "100%", boxSizing: "border-box",
+        display: compareCount >= 3 ? "block" : "none",
+      },
+      compareInputDStyle: {
+        height: 40, padding: "0 10px", border: "2px solid #201e1d",
+        fontFamily: "inherit", fontSize: 13, minWidth: 0, width: "100%", boxSizing: "border-box",
+        display: compareCount >= 4 ? "block" : "none",
+      },
       hasCompareError: !!s.compareError,
       compareErrorText: s.compareError,
       compareErrorStyle: { marginTop: 8, fontSize: 12, color: "#ec3013", fontWeight: 700 },
@@ -1086,24 +1156,29 @@ document.addEventListener('DOMContentLoaded', async function() {
       compareStageStyle: {
         position: "absolute", inset: 0, zIndex: 14,
         display: s.compareOn ? "flex" : "none",
-        flexDirection: "column", justifyContent: "center", gap: 28,
-        padding: "78px 76px", background: "#101010", color: "#f3f2f2",
+        flexDirection: "column", justifyContent: "center",
+        gap: compareCompact ? 18 : 28,
+        padding: compareVeryCompact ? "56px 42px" : compareCompact ? "64px 52px" : "78px 76px",
+        background: "#101010", color: "#f3f2f2",
         pointerEvents: "none",
       },
       compareStageHeaderStyle: {
         display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 20,
       },
       compareTitleStyle: {
-        fontSize: 48, fontWeight: 800, textTransform: "uppercase",
+        fontSize: compareCompact ? 36 : 48, fontWeight: 800, textTransform: "uppercase",
         letterSpacing: "0.04em", color: "#f3f2f2",
       },
       compareSubStyle: {
-        fontSize: 28, fontWeight: 800, textTransform: "uppercase",
-        color: "#ff8a5c", whiteSpace: "nowrap",
+        fontSize: compareCompact ? 18 : 28, fontWeight: 800, textTransform: "uppercase",
+        color: "#ff8a5c", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
       },
-      comparePairLabel: \`\${s.compareA} vs \${s.compareB}\`,
+      comparePairLabel: compareNames.join(" vs "),
       compareCardsStyle: {
-        display: "grid", gridTemplateColumns: "1fr 1fr", gap: 28, width: "100%",
+        display: "grid",
+        gridTemplateColumns: \`repeat(\${compareCount}, minmax(0, 1fr))\`,
+        gap: compareVeryCompact ? 14 : compareCompact ? 18 : 28,
+        width: "100%",
       },
       compareCards,`
         ]
